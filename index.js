@@ -26,10 +26,10 @@ const PRIVATE_KEY = crypto.createPrivateKey({
  * @returns {{ digest: string, authorization: string }}
  */
 function createBecknSignatureHeaders(payload, subscriberId) {
-  // 1) Compute SHA‑256 over the JSON body (swap to "blake2b512" if your gateway needs BLAKE2b‑512)
+  // 1) Compute SHA‑256 over the JSON body
   const bodyBuffer = Buffer.from(JSON.stringify(payload), "utf8");
   const hashBuf    = crypto.createHash("sha256").update(bodyBuffer).digest();
-  const digest     = `BLAKE-512=${hashBuf.toString("base64")}`;
+  const digest     = `SHA-256=${hashBuf.toString("base64")}`;
 
   // 2) Build the signing string (only headers you include here must be in the HTTP Signature)
   const signingString = `digest: ${digest}`;
@@ -60,14 +60,17 @@ app.post("/search", async (req, res) => {
   const gps = req.body?.message?.intent?.fulfillment?.start?.location?.gps
     || "12.9715987,77.5945627";
 
-  // Build Beckn context
+  // Build Beckn context - make these configurable via environment variables
+  const bap_id = process.env.BAP_ID || "bap.beckn-production.up.railway.app";
+  const bap_uri = process.env.BAP_URI || "https://beckn-production.up.railway.app";
+  
   const context = {
     domain:       "uei:charging",
     action:       "search",
     location:     { country: { code: "IND" }, city: { code: "std:080" } },
     core_version: "1.1.0",
-    bap_id:       "bap.beckn-production.up.railway.app",
-    bap_uri:      "https://beckn-production.up.railway.app",
+    bap_id:       bap_id,
+    bap_uri:      bap_uri,
     transaction_id: uuid(),
     message_id:     uuid(),
     timestamp:      new Date().toISOString()
@@ -92,12 +95,17 @@ app.post("/search", async (req, res) => {
 
   try {
     console.log("🔁 Sending /search to Beckn Gateway…");
+    console.log("📋 BAP ID:", bap_id);
+    console.log("📋 Payload:", JSON.stringify(becknPayload, null, 2));
 
     // Create Digest + Signature headers
     const { digest, authorization } = createBecknSignatureHeaders(
       becknPayload,
       context.bap_id
     );
+
+    console.log("🔐 Digest:", digest);
+    console.log("🔐 Authorization:", authorization);
 
     // Forward to Beckn Gateway
     const response = await axios.post(
@@ -116,8 +124,11 @@ app.post("/search", async (req, res) => {
     console.log("✅ Search forwarded to Gateway");
     res.status(200).json({ context, response: response.data });
   } catch (err) {
-    console.error("❌ Failed to forward search:", err);
-    res.status(500).json({ error: "Failed to forward search to Beckn Gateway" });
+    console.error("❌ Failed to forward search:", err.response?.data || err.message);
+    res.status(500).json({ 
+      error: "Failed to forward search to Beckn Gateway",
+      details: err.response?.data || err.message 
+    });
   }
 });
 
