@@ -106,6 +106,7 @@ app.post("/search", async (req, res) => {
 
     console.log("🔐 Digest:", digest);
     console.log("🔐 Authorization:", authorization);
+    console.log("response:", response);
 
     // Forward to Beckn Gateway
     const response = await axios.post(
@@ -122,7 +123,7 @@ app.post("/search", async (req, res) => {
     );
 
     console.log("✅ Search forwarded to Gateway");
-    res.status(200).json({ context, response: response.data });
+    res.status(200).json({ context, response: response });
   } catch (err) {
     console.error("❌ Failed to forward search:", err.response?.data || err.message);
     res.status(500).json({ 
