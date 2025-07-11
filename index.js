@@ -43,14 +43,16 @@ app.post("/search", async (req, res) => {
 
   try {
     console.log("🔁 Sending /search to Beckn Gateway...");
-    await axios.post("https://gateway.becknprotocol.io/search", becknPayload, {
+
+    res = await axios.post("https://gateway.becknprotocol.io/search", becknPayload, {
       headers: { "Content-Type": "application/json" }
     });
+    res = res.data;
 
     console.log("✅ Search forwarded to Gateway");
     res.status(200).json({
       context,
-      message: { ack: { status: "ACK" } }
+      response: res
     });
   } catch (err) {
     console.error("❌ Failed to forward search:", err.message);
