@@ -19,7 +19,7 @@ app.post("/search", async (req, res) => {
     action: "search",
     country: "IND",
     city: "std:080",
-    core_version: "1.1.0",
+    version: "1.1.0",
     bap_id: "bap.beckn-production.up.railway.app",
     bap_uri: "https://beckn-production.up.railway.app",
     transaction_id: uuid(),
@@ -44,7 +44,12 @@ app.post("/search", async (req, res) => {
     console.log("🔁 Sending /search to Beckn Gateway...");
 
     const response = await axios.post("https://gateway.becknprotocol.io/search", becknPayload, {
-      headers: { "Content-Type": "application/json" }
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive"
+      }
     });
 
     console.log("✅ Search forwarded to Gateway");
