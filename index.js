@@ -175,7 +175,7 @@ app.post("/search", async (req, res) => {
       console.error("🚨 Received HTML response - likely an error page from the gateway");
       console.error("HTML content preview:", err.response.data?.substring(0, 500));
     }
-    
+    console.log(response)
     res.status(500).json({ 
       error: "Failed to forward search to Beckn Gateway",
       details: {
