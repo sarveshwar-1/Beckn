@@ -21,6 +21,21 @@ routes.forEach(route => {
   });
 });
 
+
+app.post('/search', (req, res) => {
+  console.log("[search]", JSON.stringify(req.body, null, 2));
+
+  // Respond with a basic Beckn ACK response
+  res.status(200).send({
+    context: req.body.context,
+    message: {
+      ack: {
+        status: "ACK"
+      }
+    }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 BAP network listening on port ${PORT}`);
 });
