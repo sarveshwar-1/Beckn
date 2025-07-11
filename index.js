@@ -12,11 +12,31 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 // 🔐 Load your Ed25519 private key (PKCS#8 PEM)
-const PRIVATE_KEY = crypto.createPrivateKey({
-  key:    fs.readFileSync(path.join(__dirname, "keys", "private_key.pem")),
-  format: "pem",
-  type:   "pkcs8"
-});
+let PRIVATE_KEY;
+try {
+  const privateKeyPath = path.join(__dirname, "keys", "private_key.pem");
+  if (!fs.existsSync(privateKeyPath)) {
+    throw new Error("Private key file not found. Please run 'node generate-keys.js' first.");
+  }
+  
+  PRIVATE_KEY = crypto.createPrivateKey({
+    key:    fs.readFileSync(privateKeyPath),
+    format: "pem",
+    type:   "pkcs8"
+  });
+  
+  console.log("✅ Ed25519 private key loaded successfully");
+  
+  // Load and display public key for verification
+  const publicKeyPath = path.join(__dirname, "keys", "public_key.b64");
+  if (fs.existsSync(publicKeyPath)) {
+    const publicKeyB64 = fs.readFileSync(publicKeyPath, 'utf8').trim();
+    console.log("📋 Public Key (for registration):", publicKeyB64);
+  }
+} catch (error) {
+  console.error("❌ Failed to load private key:", error.message);
+  process.exit(1);
+}
 
 /**
  * Create Digest + HTTP‑Signature headers for Beckn requests.
@@ -26,29 +46,41 @@ const PRIVATE_KEY = crypto.createPrivateKey({
  * @returns {{ digest: string, authorization: string }}
  */
 function createBecknSignatureHeaders(payload, subscriberId) {
-  // 1) Compute SHA‑256 over the JSON body
-  const bodyBuffer = Buffer.from(JSON.stringify(payload), "utf8");
-  const hashBuf    = crypto.createHash("sha256").update(bodyBuffer).digest();
-  const digest     = `SHA-256=${hashBuf.toString("base64")}`;
+  try {
+    // 1) Serialize the payload to JSON (consistent ordering)
+    const jsonPayload = JSON.stringify(payload);
+    console.log("🔍 Payload to sign:", jsonPayload);
+    
+    // 2) Compute SHA‑256 over the JSON body
+    const bodyBuffer = Buffer.from(jsonPayload, "utf8");
+    const hashBuf    = crypto.createHash("sha256").update(bodyBuffer).digest();
+    const digest     = `SHA-256=${hashBuf.toString("base64")}`;
+    console.log("🔍 Digest:", digest);
 
-  // 2) Build the signing string (only headers you include here must be in the HTTP Signature)
-  const signingString = `digest: ${digest}`;
+    // 3) Build the signing string (only headers you include here must be in the HTTP Signature)
+    const signingString = `digest: ${digest}`;
+    console.log("🔍 Signing string:", signingString);
 
-  // 3) Sign with Ed25519
-  const signatureBase64 = crypto
-    .sign(null, Buffer.from(signingString, "utf8"), PRIVATE_KEY)
-    .toString("base64");
+    // 4) Sign with Ed25519
+    const signatureBase64 = crypto
+      .sign(null, Buffer.from(signingString, "utf8"), PRIVATE_KEY)
+      .toString("base64");
+    console.log("🔍 Signature (base64):", signatureBase64);
 
-  // 4) Format the HTTP Signature header
-  const authorization = [
-    `Signature`,
-    `keyId="${subscriberId}"`,
-    `algorithm="ed25519"`,
-    `headers="digest"`,
-    `signature="${signatureBase64}"`
-  ].join(", ");
+    // 5) Format the HTTP Signature header (correct Beckn format)
+    const authorization = [
+      `Signature keyId="${subscriberId}"`,
+      `algorithm="ed25519"`,
+      `headers="digest"`,
+      `signature="${signatureBase64}"`
+    ].join(",");
 
-  return { digest, authorization };
+    console.log("🔍 Authorization header:", authorization);
+    return { digest, authorization };
+  } catch (error) {
+    console.error("❌ Error creating signature:", error);
+    throw error;
+  }
 }
 
 // Simple health check
