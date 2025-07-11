@@ -106,7 +106,6 @@ app.post("/search", async (req, res) => {
 
     console.log("🔐 Digest:", digest);
     console.log("🔐 Authorization:", authorization);
-    console.log("response:", response);
 
     // Forward to Beckn Gateway
     const response = await axios.post(
