@@ -154,7 +154,7 @@ app.post("/search", async (req, res) => {
     );
 
     console.log("✅ Search forwarded to Gateway");
-    res.status(200).json({ context, response: response });
+    res.status(200).json({ context, response: response.data });
   } catch (err) {
     console.error("❌ Failed to forward search:", err.response?.data || err.message);
     res.status(500).json({ 
