@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 5002;
 
 app.get("/", (req, res) => res.send("✅ Beckn BAP is live"));
 
-// ✅ This is the REAL /search route
 app.post("/search", async (req, res) => {
   const gps = req.body?.message?.intent?.fulfillment?.start?.location?.gps || "12.9715987,77.5945627";
 
@@ -44,23 +43,23 @@ app.post("/search", async (req, res) => {
   try {
     console.log("🔁 Sending /search to Beckn Gateway...");
 
-    response = await axios.post("https://gateway.becknprotocol.io/search", becknPayload, {
+    const response = await axios.post("https://gateway.becknprotocol.io/search", becknPayload, {
       headers: { "Content-Type": "application/json" }
     });
 
     console.log("✅ Search forwarded to Gateway");
     console.log(response.data);
+
     res.status(200).json({
       context,
       response: response.data
     });
   } catch (err) {
     console.error("❌ Failed to forward search:", err.message);
-    res.json({ error: "Failed to forward search to Beckn Gateway" });
+    res.status(500).json({ error: "Failed to forward search to Beckn Gateway" });
   }
 });
 
-// ✅ Keep your on_* routes
 const routes = [
   "on_search", "on_select", "on_init", "on_confirm",
   "on_status", "on_track", "on_cancel", "on_support"
