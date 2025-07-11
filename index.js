@@ -68,12 +68,7 @@ function createBecknSignatureHeaders(payload, subscriberId) {
     console.log("🔍 Signature (base64):", signatureBase64);
 
     // 5) Format the HTTP Signature header (correct Beckn format)
-    const authorization = [
-      `Signature keyId="${subscriberId}"`,
-      `algorithm="ed25519"`,
-      `headers="digest"`,
-      `signature="${signatureBase64}"`
-    ].join(",");
+    const authorization = `Signature keyId="${subscriberId}",algorithm="ed25519",headers="digest",signature="${signatureBase64}"`;
 
     console.log("🔍 Authorization header:", authorization);
     return { digest, authorization };
@@ -147,19 +142,48 @@ app.post("/search", async (req, res) => {
         headers: {
           "Content-Type":  "application/json",
           "Accept":        "application/json",
+          "Cache-Control": "no-cache",
           "Digest":        digest,
           "Authorization": authorization
+        },
+        timeout: 30000, // 30 second timeout
+        validateStatus: function (status) {
+          return status < 500; // Accept any status code less than 500
         }
       }
     );
 
+    console.log("✅ Gateway Response Status:", response.status);
+    console.log("✅ Gateway Response Headers:", response.headers);
+    console.log("✅ Gateway Response Data:", JSON.stringify(response.data, null, 2));
+    
+    if (response.status >= 400) {
+      throw new Error(`Gateway returned ${response.status}: ${JSON.stringify(response.data)}`);
+    }
+    
     console.log("✅ Search forwarded to Gateway");
     res.status(200).json({ context, response: response.data });
   } catch (err) {
-    console.error("❌ Failed to forward search:", err.response?.data || err.message);
+    console.error("❌ Failed to forward search:");
+    console.error("Error message:", err.message);
+    console.error("Response status:", err.response?.status);
+    console.error("Response headers:", err.response?.headers);
+    console.error("Response data:", err.response?.data);
+    
+    // If we got an HTML response, it's likely an error page
+    if (err.response?.headers?.['content-type']?.includes('text/html')) {
+      console.error("🚨 Received HTML response - likely an error page from the gateway");
+      console.error("HTML content preview:", err.response.data?.substring(0, 500));
+    }
+    
     res.status(500).json({ 
       error: "Failed to forward search to Beckn Gateway",
-      details: err.response?.data || err.message 
+      details: {
+        message: err.message,
+        status: err.response?.status,
+        contentType: err.response?.headers?.['content-type'],
+        data: err.response?.data
+      }
     });
   }
 });
